@@ -3,13 +3,14 @@ import type { FormEvent } from "react";
 import {
   addPerson,
   addPersonDocument,
+  balanceForMonth,
   deletePerson,
   getReminders,
   getSummary,
   listPeople,
-  markPaid,
   notificationsEnabled,
   paymentHistory,
+  recordPayment,
   removePersonDocument,
   replaceAllPeople,
   searchPeople,
@@ -21,6 +22,8 @@ import {
 } from "./store";
 import type {
   BackupPayload,
+  PayMethod,
+  Payment,
   Person,
   PersonView,
   Reminder,
@@ -74,9 +77,14 @@ function money(n: number, lang: Lang) {
 
 function labelFor(lang: Lang, state: StatusState) {
   if (state === "paid") return t(lang, "paid");
+  if (state === "partial") return t(lang, "partial");
   if (state === "overdue") return t(lang, "overdue");
   if (state === "due_soon") return t(lang, "dueSoon");
   return t(lang, "upcoming");
+}
+
+function methodLabel(lang: Lang, method: PayMethod) {
+  return method === "momo" ? t(lang, "methodMomo") : t(lang, "methodCash");
 }
 
 const MONTH_NAMES: Record<Lang, string[]> = {
@@ -172,6 +180,10 @@ export default function App() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [notifOn, setNotifOn] = useState(() => notificationsEnabled());
+  const [payOpen, setPayOpen] = useState(false);
+  const [payPerson, setPayPerson] = useState<PersonView | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
@@ -327,16 +339,139 @@ export default function App() {
     refresh();
   }
 
-  function onMarkPaid(person: PersonView) {
-    markPaid(person.id);
-    setToast(t(lang, "markedPaid", { name: person.name }));
-    refresh();
+  function openPay(person: PersonView) {
+    const balance = person.status.balance || balanceForMonth(person, person.status.month);
+    setPayPerson(person);
+    setPayAmount(String(balance > 0 ? balance : person.rentAmount || ""));
+    setPayMethod("cash");
+    setPayOpen(true);
+  }
+
+  function submitPayment(e: FormEvent) {
+    e.preventDefault();
+    if (!payPerson) return;
+    const amount = Number(payAmount) || 0;
+    if (amount <= 0) {
+      setToast(t(lang, "amountRequired"));
+      return;
+    }
+    try {
+      const result = recordPayment(payPerson.id, {
+        amount,
+        method: payMethod,
+        month: payPerson.status.month,
+      });
+      setPayOpen(false);
+      refresh();
+      const updated = listPeople().find((p) => p.id === payPerson.id);
+      if (updated) setDetailId(updated.id);
+      setToast(
+        result.balance > 0
+          ? t(lang, "partialRecorded", {
+              name: payPerson.name,
+              balance: money(result.balance, lang),
+            })
+          : t(lang, "markedPaid", { name: payPerson.name })
+      );
+      printReceipt(result.person, result.payment, result.balance);
+    } catch {
+      setToast(t(lang, "amountRequired"));
+    }
   }
 
   function onUndoPaid(person: PersonView) {
     undoPaid(person.id, person.status.month);
     setToast(t(lang, "paymentUndone", { name: person.name }));
     refresh();
+  }
+
+  function printReceipt(person: Person, payment: Payment, balanceAfter: number) {
+    const rent = Number(person.rentAmount) || 0;
+    const paidBefore =
+      (person.payments || [])
+        .filter((p) => p.month === payment.month && p.id !== payment.id)
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0) + Number(payment.amount);
+    const fullyPaid = balanceAfter <= 0;
+    const issued = formatDate(payment.paidAt, lang);
+    const html = `<!doctype html>
+<html lang="${lang === "rw" ? "rw" : lang}">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(payment.receiptNo)} — Inzu</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eef3ec; font-family: "Sora", system-ui, sans-serif; color: #15231c; }
+    .wrap { max-width: 420px; margin: 18px auto; padding: 12px; }
+    .toolbar { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .toolbar button { border: 0; border-radius: 999px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+    .back { background: #fff; border: 1px solid #d7e0d8 !important; }
+    .print { background: #1f3a2e; color: #fff; }
+    .slip { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(21,35,28,.12); }
+    .head { background: linear-gradient(160deg,#163226,#1f3a2e 55%,#2b4d3a); color: #f7faf6; padding: 22px 20px 18px; }
+    .brand { margin: 0; font-family: Georgia, serif; font-size: 28px; color: #c9a24a; }
+    .sub { margin: 4px 0 0; color: rgba(247,250,246,.75); font-size: 13px; }
+    .body { padding: 18px 20px 22px; }
+    .rec { font-size: 22px; font-weight: 700; margin: 0; }
+    .issued { margin: 4px 0 14px; color: #66736b; font-size: 12px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed #d7e0d8; font-size: 14px; }
+    .row span { color: #66736b; }
+    .row strong { text-align: right; }
+    .status { margin-top: 16px; border-radius: 14px; padding: 14px; text-align: center; }
+    .status.ok { background: #e7f5ec; color: #2f6b45; }
+    .status.partial { background: #fff4df; color: #9d7a2c; }
+    .status h3 { margin: 0 0 4px; font-size: 16px; }
+    .status p { margin: 0; font-size: 13px; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none !important; }
+      .wrap { margin: 0; max-width: none; padding: 0; }
+      .slip { box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar no-print">
+      <button class="back" onclick="window.close()">${escapeHtml(t(lang, "back"))}</button>
+      <button class="print" onclick="window.print()">${escapeHtml(t(lang, "printReceipt"))}</button>
+    </div>
+    <article class="slip">
+      <header class="head">
+        <h1 class="brand">Inzu</h1>
+        <p class="sub">${escapeHtml(t(lang, "officialReceipt"))}</p>
+      </header>
+      <div class="body">
+        <p class="rec">${escapeHtml(payment.receiptNo)}</p>
+        <p class="issued">${escapeHtml(t(lang, "issued"))}: ${escapeHtml(issued)}</p>
+        <div class="row"><span>${escapeHtml(t(lang, "fullName"))}</span><strong>${escapeHtml(person.name)}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "phone"))}</span><strong>${escapeHtml(person.phone || "—")}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "nationalId"))}</span><strong>${escapeHtml(person.nationalId || "—")}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "room"))}</span><strong>${escapeHtml(person.room || t(lang, "noRoom"))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "rent"))}</span><strong>${escapeHtml(money(rent, lang))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "amountPaid"))}</span><strong>${escapeHtml(money(payment.amount, lang))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "totalPaidMonth"))}</span><strong>${escapeHtml(money(paidBefore, lang))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "balanceDue"))}</span><strong>${escapeHtml(money(balanceAfter, lang))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "paidFor"))}</span><strong>${escapeHtml(formatMonth(payment.month, lang))}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "paymentDate"))}</span><strong>${escapeHtml(issued)}</strong></div>
+        <div class="row"><span>${escapeHtml(t(lang, "paymentMethod"))}</span><strong>${escapeHtml(methodLabel(lang, payment.method))}</strong></div>
+        <div class="status ${fullyPaid ? "ok" : "partial"}">
+          <h3>${escapeHtml(fullyPaid ? t(lang, "paymentConfirmed") : t(lang, "partialConfirmed"))}</h3>
+          <p>${escapeHtml(fullyPaid ? t(lang, "thanksPaid") : t(lang, "thanksPartial", { balance: money(balanceAfter, lang) }))}</p>
+        </div>
+      </div>
+    </article>
+  </div>
+  <script>window.onload=function(){setTimeout(function(){window.print()},300)}</script>
+</body>
+</html>`;
+    const win = window.open("", "_blank");
+    if (!win) {
+      setToast(t(lang, "pdfBlocked"));
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   }
 
   async function onRemove(person: PersonView) {
@@ -521,9 +656,16 @@ export default function App() {
             (h) =>
               `<tr>
                 <td>${escapeHtml(formatMonth(h.month, lang))}</td>
-                <td>${escapeHtml(money(h.amount, lang))}</td>
-                <td>${h.paid ? escapeHtml(t(lang, "paid")) : escapeHtml(t(lang, "unpaid"))}</td>
-                <td>${h.paidAt ? escapeHtml(formatDate(h.paidAt, lang)) : "—"}</td>
+                <td>${escapeHtml(money(h.rentAmount, lang))}</td>
+                <td>${escapeHtml(money(h.paidAmount, lang))}</td>
+                <td>${escapeHtml(money(h.balance, lang))}</td>
+                <td>${
+                  h.fullyPaid
+                    ? escapeHtml(t(lang, "paid"))
+                    : h.partial
+                      ? escapeHtml(t(lang, "partial"))
+                      : escapeHtml(t(lang, "unpaid"))
+                }</td>
               </tr>`
           )
           .join("");
@@ -545,9 +687,10 @@ export default function App() {
               <thead>
                 <tr>
                   <th>${escapeHtml(t(lang, "month"))}</th>
-                  <th>${escapeHtml(t(lang, "amount"))}</th>
-                  <th>${escapeHtml(labelFor(lang, "paid"))}</th>
-                  <th>${escapeHtml(t(lang, "paidOn"))}</th>
+                  <th>${escapeHtml(t(lang, "rent"))}</th>
+                  <th>${escapeHtml(t(lang, "paidSoFar"))}</th>
+                  <th>${escapeHtml(t(lang, "balanceDue"))}</th>
+                  <th>${escapeHtml(t(lang, "paid"))}</th>
                 </tr>
               </thead>
               <tbody>${historyRows}</tbody>
@@ -629,9 +772,16 @@ export default function App() {
         (h) =>
           `<tr>
             <td>${escapeHtml(formatMonth(h.month, lang))}</td>
-            <td>${escapeHtml(money(h.amount, lang))}</td>
-            <td>${h.paid ? escapeHtml(t(lang, "paid")) : escapeHtml(t(lang, "unpaid"))}</td>
-            <td>${h.paidAt ? escapeHtml(formatDate(h.paidAt, lang)) : "—"}</td>
+            <td>${escapeHtml(money(h.rentAmount, lang))}</td>
+            <td>${escapeHtml(money(h.paidAmount, lang))}</td>
+            <td>${escapeHtml(money(h.balance, lang))}</td>
+            <td>${
+              h.fullyPaid
+                ? escapeHtml(t(lang, "paid"))
+                : h.partial
+                  ? escapeHtml(t(lang, "partial"))
+                  : escapeHtml(t(lang, "unpaid"))
+            }</td>
           </tr>`
       )
       .join("");
@@ -676,9 +826,10 @@ export default function App() {
     <thead>
       <tr>
         <th>${escapeHtml(t(lang, "month"))}</th>
-        <th>${escapeHtml(t(lang, "amount"))}</th>
+        <th>${escapeHtml(t(lang, "rent"))}</th>
+        <th>${escapeHtml(t(lang, "paidSoFar"))}</th>
+        <th>${escapeHtml(t(lang, "balanceDue"))}</th>
         <th>${escapeHtml(t(lang, "paid"))}</th>
-        <th>${escapeHtml(t(lang, "paidOn"))}</th>
       </tr>
     </thead>
     <tbody>${historyRows}</tbody>
@@ -808,6 +959,10 @@ export default function App() {
             <span>{t(lang, "paid")}</span>
             <strong>{summary?.paid ?? 0}</strong>
           </div>
+          <div className="stat pop-in" style={{ animationDelay: "0.12s" }}>
+            <span>{t(lang, "partial")}</span>
+            <strong>{summary?.partial ?? 0}</strong>
+          </div>
           <div className="stat pop-in" style={{ animationDelay: "0.15s" }}>
             <span>{t(lang, "overdue")}</span>
             <strong>{summary?.overdue ?? 0}</strong>
@@ -861,7 +1016,9 @@ export default function App() {
                   <p>
                     {r.room ? `${t(lang, "room")} ${r.room} · ` : ""}
                     {t(lang, "due")} {r.due} · {money(r.rentAmount, lang)}
-                    {r.nationalId ? ` · ${t(lang, "nationalId")} ${r.nationalId}` : ""}
+                    {r.balance > 0
+                      ? ` · ${t(lang, "balanceDue")} ${money(r.balance, lang)}`
+                      : ""}
                   </p>
                 </button>
                 <div className="reminder-side">
@@ -947,9 +1104,9 @@ export default function App() {
                   ) : (
                     <button
                       className="btn btn-ok"
-                      onClick={() => onMarkPaid(person)}
+                      onClick={() => openPay(person)}
                     >
-                      {t(lang, "markPaid")}
+                      {t(lang, "recordPayment")}
                     </button>
                   )}
                   <button
@@ -1070,14 +1227,19 @@ export default function App() {
               </div>
             </div>
 
+            <p className="detail-line">
+              {t(lang, "paidSoFar")}: {money(detail.status.paidAmount, lang)} ·{" "}
+              {t(lang, "balanceDue")}: {money(detail.status.balance, lang)}
+            </p>
+
             <div className="actions detail-actions">
               {detail.status.state === "paid" ? (
                 <button className="btn btn-quiet" onClick={() => onUndoPaid(detail)}>
                   {t(lang, "undoPaid")}
                 </button>
               ) : (
-                <button className="btn btn-ok" onClick={() => onMarkPaid(detail)}>
-                  {t(lang, "markPaid")}
+                <button className="btn btn-ok" onClick={() => openPay(detail)}>
+                  {t(lang, "recordPayment")}
                 </button>
               )}
               <button
@@ -1156,21 +1318,46 @@ export default function App() {
             </p>
             <div className="history">
               {history.map((row) => (
-                <div key={row.month} className={`history-row ${row.paid ? "ok" : ""}`}>
+                <div
+                  key={row.month}
+                  className={`history-row ${row.fullyPaid ? "ok" : row.partial ? "partial-row" : ""}`}
+                >
                   <div>
                     <strong>{formatMonth(row.month, lang)}</strong>
                     <p>
-                      {t(lang, "amount")} {money(row.amount, lang)}
+                      {t(lang, "rent")} {money(row.rentAmount, lang)} ·{" "}
+                      {t(lang, "paidSoFar")} {money(row.paidAmount, lang)}
+                      {row.balance > 0
+                        ? ` · ${t(lang, "balanceDue")} ${money(row.balance, lang)}`
+                        : ""}
                     </p>
+                    {row.payments.length > 0 && (
+                      <div className="slip-links">
+                        {row.payments.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="btn btn-quiet"
+                            onClick={() =>
+                              printReceipt(detail, p, balanceForMonth(detail, row.month))
+                            }
+                          >
+                            {p.receiptNo} · {methodLabel(lang, p.method)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="history-status">
-                    {row.paid ? (
+                    {row.fullyPaid ? (
                       <>
                         <span className="badge paid">{t(lang, "paid")}</span>
                         <small>
                           {t(lang, "paidOn")} {formatDate(row.paidAt, lang)}
                         </small>
                       </>
+                    ) : row.partial ? (
+                      <span className="badge partial">{t(lang, "partial")}</span>
                     ) : (
                       <span className="badge upcoming">{t(lang, "unpaid")}</span>
                     )}
@@ -1188,6 +1375,65 @@ export default function App() {
                 {t(lang, "close")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {payOpen && payPerson && (
+        <div className="modal-backdrop" onClick={() => setPayOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{t(lang, "recordPayment")}</h2>
+            <p className="muted">
+              {payPerson.name} · {t(lang, "rent")}{" "}
+              {money(payPerson.rentAmount, lang)} · {t(lang, "balanceDue")}{" "}
+              {money(payPerson.status.balance, lang)}
+            </p>
+            <form className="form-grid" onSubmit={submitPayment}>
+              <label>
+                {t(lang, "amountPaid")}
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  inputMode="numeric"
+                />
+              </label>
+              <fieldset className="method-pick">
+                <legend>{t(lang, "paymentMethod")}</legend>
+                <label className="method-option">
+                  <input
+                    type="radio"
+                    name="payMethod"
+                    checked={payMethod === "cash"}
+                    onChange={() => setPayMethod("cash")}
+                  />
+                  {t(lang, "methodCash")}
+                </label>
+                <label className="method-option">
+                  <input
+                    type="radio"
+                    name="payMethod"
+                    checked={payMethod === "momo"}
+                    onChange={() => setPayMethod("momo")}
+                  />
+                  {t(lang, "methodMomo")}
+                </label>
+              </fieldset>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-quiet"
+                  onClick={() => setPayOpen(false)}
+                >
+                  {t(lang, "cancel")}
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {t(lang, "savePayment")}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

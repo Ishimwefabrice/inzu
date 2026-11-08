@@ -693,6 +693,47 @@ a {
   background: rgba(47, 107, 69, 0.06);
 }
 
+.history-row.partial-row {
+  background: rgba(201, 162, 74, 0.1);
+}
+
+.slip-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.slip-links .btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.method-pick {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  margin: 0;
+}
+
+.method-pick legend {
+  padding: 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.method-option {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+  font-weight: 500;
+}
+
+.method-option input {
+  width: auto;
+}
+
 .history-row p {
   margin: 0.2rem 0 0;
   color: rgba(21, 35, 28, 0.6);
@@ -815,6 +856,11 @@ a {
 .badge.paid {
   background: rgba(47, 107, 69, 0.12);
   color: var(--ok);
+}
+
+.badge.partial {
+  background: rgba(201, 162, 74, 0.2);
+  color: var(--gold-deep);
 }
 
 .badge.overdue {
