@@ -1,4 +1,4 @@
-const CACHE = "inzu-v1";
+const CACHE = "inzu-v2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg"];
 
 self.addEventListener("install", (event) => {
