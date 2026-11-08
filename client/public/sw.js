@@ -1,4 +1,4 @@
-const CACHE = "inzu-v2";
+const CACHE = "inzu-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -15,19 +15,17 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Network-first so updates on GitHub Pages show up without a stuck old cache.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   event.respondWith(
-    caches.match(req).then((cached) => {
-      const networked = fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, copy));
-          return res;
-        })
-        .catch(() => cached);
-      return cached || networked;
-    })
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((cache) => cache.put(req, copy));
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });

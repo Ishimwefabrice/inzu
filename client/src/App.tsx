@@ -77,12 +77,55 @@ function labelFor(lang: Lang, state: StatusState) {
   return t(lang, "upcoming");
 }
 
+const MONTH_NAMES: Record<Lang, string[]> = {
+  en: [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ],
+  rw: [
+    "Mutarama",
+    "Gashyantare",
+    "Werurwe",
+    "Mata",
+    "Gicurasi",
+    "Kamena",
+    "Nyakanga",
+    "Kanama",
+    "Nzeri",
+    "Ukwakira",
+    "Ugushyingo",
+    "Ukuboza",
+  ],
+  fr: [
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+  ],
+};
+
 function formatMonth(key: string, lang: Lang) {
   const [y, m] = key.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleString(localeFor(lang), {
-    month: "long",
-    year: "numeric",
-  });
+  const name = MONTH_NAMES[lang][Math.min(11, Math.max(0, (m || 1) - 1))];
+  return `${m}. ${name} ${y}`;
 }
 
 function formatDate(iso: string | null, lang: Lang) {
@@ -945,6 +988,11 @@ export default function App() {
             />
 
             <h3 className="subhead">{t(lang, "paymentHistory")}</h3>
+            <p className="muted">
+              {t(lang, "paymentHistoryYear", {
+                year: new Date().getFullYear(),
+              })}
+            </p>
             <div className="history">
               {history.map((row) => (
                 <div key={row.month} className={`history-row ${row.paid ? "ok" : ""}`}>
