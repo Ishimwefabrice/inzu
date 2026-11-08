@@ -11,6 +11,7 @@ type Dict = Record<string, string>;
 const en: Dict = {
   tagline:
     "Keep a clear record of everyone living in your house, track monthly rent, and see reminders when payment is due. Free on your phone — with no fees.",
+  splashLine: "Your house. Your records. Free.",
   addPerson: "Add a person",
   turnOnReminders: "Turn on reminders",
   turnOffReminders: "Turn off reminders",
@@ -131,6 +132,7 @@ const en: Dict = {
 const rw: Dict = {
   tagline:
     "Andika abantu bose baba mu nzu yawe, kurikirana ubukode bwa buri kwezi, kandi ubone ibyibutso igihe cyo kwishyura kigeze. Ni ubuntu kuri telefone — nta kiguzi.",
+  splashLine: "Inzu yawe. Amakuru yawe. Ni ubuntu.",
   addPerson: "Ongeramo umuntu",
   turnOnReminders: "Fungura ibyibutso",
   turnOffReminders: "Hagarika ibyibutso",
@@ -256,6 +258,7 @@ const rw: Dict = {
 const fr: Dict = {
   tagline:
     "Gardez une trace claire des personnes de votre maison, suivez le loyer mensuel et voyez les rappels quand le paiement est dû. Gratuit sur téléphone — sans frais.",
+  splashLine: "Votre maison. Vos dossiers. Gratuit.",
   addPerson: "Ajouter une personne",
   turnOnReminders: "Activer les rappels",
   turnOffReminders: "Désactiver les rappels",

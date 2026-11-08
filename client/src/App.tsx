@@ -156,6 +156,8 @@ function dateValueToDueDay(value: string) {
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang());
+  const [splash, setSplash] = useState(true);
+  const [splashLeaving, setSplashLeaving] = useState(false);
   const [people, setPeople] = useState<PersonView[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -198,6 +200,15 @@ export default function App() {
   useEffect(() => {
     refresh();
     document.documentElement.lang = lang === "rw" ? "rw" : lang;
+  }, []);
+
+  useEffect(() => {
+    const leave = window.setTimeout(() => setSplashLeaving(true), 2200);
+    const done = window.setTimeout(() => setSplash(false), 2900);
+    return () => {
+      window.clearTimeout(leave);
+      window.clearTimeout(done);
+    };
   }, []);
 
   useEffect(() => {
@@ -615,7 +626,34 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${langFlash ? "lang-flash" : ""}`}>
+    <div className={`app-shell ${langFlash ? "lang-flash" : ""} ${splash ? "splash-lock" : ""}`}>
+      {splash && (
+        <div
+          className={`splash-screen ${splashLeaving ? "leaving" : ""}`}
+          aria-hidden={splashLeaving}
+        >
+          <div className="splash-glow" />
+          <div className="splash-ring" />
+          <div className="splash-mark" aria-hidden="true">
+            <svg viewBox="0 0 80 80" className="splash-house">
+              <path
+                d="M14 36 L40 14 L66 36 V64 H50 V48 H30 V64 H14 Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <h1 className="splash-brand">Inzu</h1>
+          <p className="splash-line">{t(lang, "splashLine")}</p>
+          <div className="splash-bar" aria-hidden="true">
+            <span />
+          </div>
+        </div>
+      )}
+
+      <div className={`app-main ${splash ? "waiting" : "ready"}`}>
       <header className="hero">
         <div className="hero-orbs" aria-hidden="true">
           <span className="orb orb-a" />
@@ -1124,6 +1162,7 @@ export default function App() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      </div>
     </div>
   );
 }
