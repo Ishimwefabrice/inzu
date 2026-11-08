@@ -37,6 +37,7 @@ body {
     radial-gradient(circle at top left, rgba(201, 162, 74, 0.18), transparent 32%),
     radial-gradient(circle at 85% 12%, rgba(63, 107, 82, 0.16), transparent 28%),
     linear-gradient(180deg, #f7faf6 0%, #eef3ec 100%);
+  background-attachment: fixed;
 }
 
 button,
@@ -58,6 +59,11 @@ a {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1.5rem 0 3rem;
+  transition: opacity 0.25s ease;
+}
+
+.app-shell.lang-flash {
+  animation: softFlash 0.45s ease;
 }
 
 .hero {
@@ -73,15 +79,83 @@ a {
   animation: rise 0.7s ease both;
 }
 
-.hero::after {
-  content: "";
+.hero-orbs {
   position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 220px;
-  height: 220px;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
   border-radius: 50%;
-  background: rgba(232, 240, 234, 0.08);
+  filter: blur(0.5px);
+  opacity: 0.35;
+}
+
+.orb-a {
+  width: 180px;
+  height: 180px;
+  right: -30px;
+  top: -40px;
+  background: rgba(201, 162, 74, 0.45);
+  animation: drift 9s ease-in-out infinite alternate;
+}
+
+.orb-b {
+  width: 120px;
+  height: 120px;
+  left: 12%;
+  bottom: -40px;
+  background: rgba(232, 240, 234, 0.22);
+  animation: drift 11s ease-in-out infinite alternate-reverse;
+}
+
+.orb-c {
+  width: 70px;
+  height: 70px;
+  right: 28%;
+  top: 42%;
+  background: rgba(201, 162, 74, 0.28);
+  animation: bob 5.5s ease-in-out infinite;
+}
+
+.lang-bar {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.28rem;
+  margin-bottom: 1.1rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(247, 250, 246, 0.14);
+  animation: rise 0.55s ease both;
+}
+
+.lang-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  color: rgba(247, 250, 246, 0.78);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition:
+    background 0.22s ease,
+    color 0.22s ease,
+    transform 0.18s ease;
+}
+
+.lang-btn:active {
+  transform: scale(0.96);
+}
+
+.lang-btn.active {
+  background: var(--gold);
+  color: #1a1608;
+  box-shadow: 0 6px 16px rgba(201, 162, 74, 0.35);
+  animation: tapPop 0.35s ease;
 }
 
 .brand {
@@ -94,6 +168,20 @@ a {
   z-index: 1;
 }
 
+.brand-word {
+  display: inline-block;
+  animation: brandIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  background: linear-gradient(110deg, #f7faf6 0%, #f0e2b8 45%, #f7faf6 90%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    brandIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both,
+    shimmer 4.5s ease-in-out infinite 1s;
+}
+
+.hero-tagline,
 .hero p {
   max-width: 34rem;
   margin: 0.75rem 0 0;
@@ -101,6 +189,10 @@ a {
   font-size: 1.05rem;
   position: relative;
   z-index: 1;
+}
+
+.hero-tagline {
+  animation: rise 0.45s ease both;
 }
 
 .hero-actions {
@@ -117,11 +209,18 @@ a {
   border-radius: 999px;
   padding: 0.85rem 1.25rem;
   font-weight: 600;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-primary {
@@ -152,6 +251,10 @@ a {
   color: var(--ok);
 }
 
+.pulse-soft {
+  animation: softPulse 2.4s ease-in-out infinite;
+}
+
 .panel {
   margin-top: 1.25rem;
   background: rgba(255, 255, 255, 0.78);
@@ -161,6 +264,19 @@ a {
   box-shadow: var(--shadow);
   padding: 1.25rem;
   animation: rise 0.75s ease both;
+}
+
+.anim-delay-1 {
+  animation-delay: 0.08s;
+}
+.anim-delay-2 {
+  animation-delay: 0.16s;
+}
+.anim-delay-3 {
+  animation-delay: 0.24s;
+}
+.anim-delay-4 {
+  animation-delay: 0.32s;
 }
 
 .stats {
@@ -174,6 +290,12 @@ a {
   border-radius: 18px;
   background: linear-gradient(180deg, #ffffff, #f3f7f1);
   border: 1px solid var(--line);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(21, 35, 28, 0.08);
 }
 
 .stat span {
@@ -187,6 +309,10 @@ a {
   font-family: "Fraunces", Georgia, serif;
   font-size: 1.7rem;
   font-weight: 700;
+}
+
+.pop-in {
+  animation: popIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .reminders {
@@ -228,12 +354,12 @@ a {
   border-radius: 20px;
   border: 1px solid var(--line);
   background: #fff;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
 .person-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(21, 35, 28, 0.08);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 16px 34px rgba(21, 35, 28, 0.1);
 }
 
 .person-card h3 {
@@ -245,6 +371,10 @@ a {
   margin: 0.25rem 0 0;
   color: rgba(21, 35, 28, 0.62);
   font-size: 0.92rem;
+}
+
+.slide-in {
+  animation: slideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .badge {
@@ -275,6 +405,10 @@ a {
 .badge.upcoming {
   background: rgba(31, 58, 46, 0.08);
   color: var(--forest);
+}
+
+.badge-pulse {
+  animation: badgePulse 1.8s ease-in-out infinite;
 }
 
 .actions {
@@ -311,7 +445,7 @@ a {
   place-items: center;
   padding: 1rem;
   z-index: 40;
-  animation: fade 0.2s ease both;
+  animation: fade 0.22s ease both;
 }
 
 .modal {
@@ -320,7 +454,7 @@ a {
   border-radius: 24px;
   padding: 1.4rem;
   box-shadow: var(--shadow);
-  animation: rise 0.25s ease both;
+  animation: modalIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .modal h2 {
@@ -347,12 +481,14 @@ textarea {
   border-radius: 14px;
   padding: 0.8rem 0.9rem;
   background: #fbfcfb;
+  transition: outline 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 input:focus,
 textarea:focus {
   outline: 2px solid rgba(201, 162, 74, 0.45);
   border-color: transparent;
+  transform: translateY(-1px);
 }
 
 .form-row {
@@ -372,6 +508,7 @@ textarea:focus {
   text-align: center;
   padding: 2rem 1rem;
   color: rgba(21, 35, 28, 0.58);
+  animation: rise 0.4s ease both;
 }
 
 .toast {
@@ -387,7 +524,7 @@ textarea:focus {
   border-radius: 16px;
   box-shadow: var(--shadow);
   z-index: 50;
-  animation: rise 0.25s ease both;
+  animation: toastIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .install-tip {
@@ -416,7 +553,7 @@ textarea:focus {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -430,6 +567,144 @@ textarea:focus {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes brandIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% center;
+  }
+  50% {
+    background-position: 100% center;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-18px, 14px) scale(1.08);
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 24px rgba(201, 162, 74, 0.28);
+  }
+  50% {
+    box-shadow: 0 12px 32px rgba(201, 162, 74, 0.48);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes badgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes tapPop {
+  0% {
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes softFlash {
+  0% {
+    filter: brightness(1);
+  }
+  40% {
+    filter: brightness(1.06);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -455,6 +730,18 @@ textarea:focus {
   .hero {
     padding: 1.6rem 1.2rem;
     border-radius: 24px;
+  }
+
+  .lang-bar {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .lang-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.78rem;
   }
 
   .stats,
