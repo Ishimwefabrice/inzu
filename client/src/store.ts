@@ -225,15 +225,13 @@ export type HistoryRow = {
   paid: boolean;
 };
 
-export function paymentHistory(person: Person, monthsBack = 12): HistoryRow[] {
+/** Full calendar year January → December for the given year (defaults to this year). */
+export function paymentHistory(person: Person, year = new Date().getFullYear()): HistoryRow[] {
   const rows: HistoryRow[] = [];
-  const now = new Date();
   const map = new Map((person.payments || []).map((p) => [p.month, p]));
 
-  // Build oldest → newest so months read January through December in order.
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = monthKey(d);
+  for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+    const key = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
     const pay = map.get(key);
     rows.push({
       month: key,

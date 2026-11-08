@@ -212,7 +212,7 @@ export default function App() {
   }, [summary, lang]);
 
   const history = useMemo(
-    () => (detail ? paymentHistory(detail, 12) : []),
+    () => (detail ? paymentHistory(detail) : []),
     [detail]
   );
 
@@ -450,7 +450,7 @@ export default function App() {
 
     const peopleHtml = rows
       .map((person) => {
-        const historyRows = paymentHistory(person, 12)
+        const historyRows = paymentHistory(person)
           .map(
             (h) =>
               `<tr>
