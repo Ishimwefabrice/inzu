@@ -1,0 +1,16 @@
+{
+  "name": "inzu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inzu — simple house tenant tracking and rent reminders for home use",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "server": "node server/index.js",
+    "client": "npm run dev --prefix client -- --host 127.0.0.1 --port 5173",
+    "dev": "npx concurrently -k -n server,client -c teal,gold \"npm run server\" \"npm run client\"",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
