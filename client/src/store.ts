@@ -230,7 +230,8 @@ export function paymentHistory(person: Person, monthsBack = 12): HistoryRow[] {
   const now = new Date();
   const map = new Map((person.payments || []).map((p) => [p.month, p]));
 
-  for (let i = 0; i < monthsBack; i++) {
+  // Build oldest → newest so months read January through December in order.
+  for (let i = monthsBack - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = monthKey(d);
     const pay = map.get(key);
