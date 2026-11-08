@@ -429,6 +429,125 @@ export default function App() {
     }
   }
 
+  function escapeHtml(value: string) {
+    return value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function exportPdfReport() {
+    const rows = listPeople();
+    const sum = getSummary();
+    const now = new Date().toLocaleString(localeFor(lang), {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const peopleHtml = rows
+      .map((person) => {
+        const historyRows = paymentHistory(person, 12)
+          .map(
+            (h) =>
+              `<tr>
+                <td>${escapeHtml(formatMonth(h.month, lang))}</td>
+                <td>${escapeHtml(money(h.amount, lang))}</td>
+                <td>${h.paid ? escapeHtml(t(lang, "paid")) : escapeHtml(t(lang, "unpaid"))}</td>
+                <td>${h.paidAt ? escapeHtml(formatDate(h.paidAt, lang)) : "—"}</td>
+              </tr>`
+          )
+          .join("");
+
+        return `
+          <section class="person">
+            <h2>${escapeHtml(person.name)}</h2>
+            <p>
+              ${escapeHtml(t(lang, "room"))}: ${escapeHtml(person.room || t(lang, "noRoom"))}<br/>
+              ${escapeHtml(t(lang, "phone"))}: ${escapeHtml(person.phone || "—")}<br/>
+              ${escapeHtml(t(lang, "rent"))}: ${escapeHtml(money(person.rentAmount, lang))}<br/>
+              ${escapeHtml(t(lang, "dueDay"))}: ${person.dueDay}<br/>
+              ${escapeHtml(t(lang, "thisMonth"))}: ${escapeHtml(labelFor(lang, person.status.state))}
+            </p>
+            ${person.notes ? `<p><strong>${escapeHtml(t(lang, "notes"))}:</strong> ${escapeHtml(person.notes)}</p>` : ""}
+            <h3>${escapeHtml(t(lang, "paymentHistory"))}</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>${escapeHtml(t(lang, "month"))}</th>
+                  <th>${escapeHtml(t(lang, "amount"))}</th>
+                  <th>${escapeHtml(labelFor(lang, "paid"))}</th>
+                  <th>${escapeHtml(t(lang, "paidOn"))}</th>
+                </tr>
+              </thead>
+              <tbody>${historyRows}</tbody>
+            </table>
+          </section>`;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="${lang === "rw" ? "rw" : lang}">
+<head>
+  <meta charset="utf-8" />
+  <title>Inzu — ${escapeHtml(t(lang, "pdfTitle"))}</title>
+  <style>
+    body { font-family: Georgia, "Times New Roman", serif; color: #15231c; margin: 24px; }
+    h1 { font-size: 28px; margin: 0 0 6px; }
+    h2 { font-size: 18px; margin: 0 0 8px; color: #1f3a2e; }
+    h3 { font-size: 14px; margin: 14px 0 6px; }
+    p, li { font-size: 13px; line-height: 1.45; }
+    .meta { color: #555; margin-bottom: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 22px; }
+    .stat { border: 1px solid #d7e0d8; border-radius: 8px; padding: 8px 10px; }
+    .stat span { display: block; font-size: 11px; color: #666; }
+    .stat strong { font-size: 16px; }
+    .person { border-top: 1px solid #d7e0d8; padding: 14px 0; break-inside: avoid; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #d7e0d8; padding: 6px 8px; text-align: left; }
+    th { background: #eef3ec; }
+    .hint { margin-top: 20px; font-size: 12px; color: #666; }
+    @media print {
+      body { margin: 12mm; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Inzu</h1>
+  <p class="meta">${escapeHtml(t(lang, "pdfTitle"))}<br/>${escapeHtml(now)}</p>
+  <div class="stats">
+    <div class="stat"><span>${escapeHtml(t(lang, "people"))}</span><strong>${sum.totalPeople}</strong></div>
+    <div class="stat"><span>${escapeHtml(t(lang, "paid"))}</span><strong>${sum.paid}</strong></div>
+    <div class="stat"><span>${escapeHtml(t(lang, "overdue"))}</span><strong>${sum.overdue}</strong></div>
+    <div class="stat"><span>${escapeHtml(t(lang, "expected"))}</span><strong>${escapeHtml(money(sum.expected, lang))}</strong></div>
+    <div class="stat"><span>${escapeHtml(t(lang, "collected"))}</span><strong>${escapeHtml(money(sum.collected, lang))}</strong></div>
+    <div class="stat"><span>${escapeHtml(t(lang, "stillOwed"))}</span><strong>${escapeHtml(money(sum.outstanding, lang))}</strong></div>
+  </div>
+  ${peopleHtml || `<p>${escapeHtml(t(lang, "emptyPeople"))}</p>`}
+  <p class="hint no-print">${escapeHtml(t(lang, "pdfPrintHint"))}</p>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+
+    const report = window.open("", "_blank");
+    if (!report) {
+      setToast(t(lang, "pdfBlocked"));
+      return;
+    }
+    report.document.open();
+    report.document.write(html);
+    report.document.close();
+    setToast(t(lang, "pdfReady"));
+  }
+
   async function importBackup(file: File | null) {
     if (!file) return;
     try {
@@ -662,7 +781,10 @@ export default function App() {
           </div>
         </div>
         <div className="actions">
-          <button className="btn btn-ok" onClick={exportBackup}>
+          <button className="btn btn-primary" onClick={exportPdfReport}>
+            {t(lang, "exportPdf")}
+          </button>
+          <button className="btn btn-ok" onClick={() => void exportBackup()}>
             {t(lang, "exportBackup")}
           </button>
           <button
@@ -682,6 +804,7 @@ export default function App() {
             }}
           />
         </div>
+        <p className="muted backup-note">{t(lang, "backupVsPdf")}</p>
       </section>
 
       {detail && (
