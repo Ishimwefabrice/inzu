@@ -103,7 +103,6 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PersonView | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [installHint, setInstallHint] = useState(false);
   const [langFlash, setLangFlash] = useState(false);
   const [query, setQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -139,11 +138,6 @@ export default function App() {
   useEffect(() => {
     refresh();
     document.documentElement.lang = lang === "rw" ? "rw" : lang;
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      // @ts-expect-error iOS Safari
-      window.navigator.standalone === true;
-    setInstallHint(!standalone);
   }, []);
 
   useEffect(() => {
@@ -478,18 +472,7 @@ export default function App() {
         <p className="notif-help">{t(lang, "notifHelp")}</p>
       </header>
 
-      {installHint && (
-        <section className="panel install-tip anim-delay-1">
-          <strong>{t(lang, "saveOnPhone")}</strong>
-          <p>
-            {t(lang, "installAndroid")}
-            <br />
-            {t(lang, "installIos")}
-          </p>
-        </section>
-      )}
-
-      <section className="panel anim-delay-2">
+      <section className="panel anim-delay-1">
         <div className="section-head">
           <div>
             <h2>{t(lang, "thisMonth")}</h2>
