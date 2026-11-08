@@ -58,7 +58,7 @@ const emptyDraft: Draft = {
   phone: "",
   room: "",
   rentAmount: "",
-  dueDay: "1",
+  dueDay: dueDayToDateValue(1),
   notes: "",
 };
 
@@ -92,6 +92,23 @@ function formatDate(iso: string | null, lang: Lang) {
     month: "short",
     year: "numeric",
   });
+}
+
+/** Calendar value (YYYY-MM-DD) for a recurring due day in the current month. */
+function dueDayToDateValue(dueDay: number) {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const day = Math.min(Math.max(1, dueDay || 1), last);
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${now.getFullYear()}-${m}-${d}`;
+}
+
+function dateValueToDueDay(value: string) {
+  if (!value) return 1;
+  const parts = value.split("-").map(Number);
+  const day = parts[2] || 1;
+  return Math.min(31, Math.max(1, day));
 }
 
 export default function App() {
@@ -212,7 +229,7 @@ export default function App() {
       phone: person.phone,
       room: person.room,
       rentAmount: String(person.rentAmount || ""),
-      dueDay: String(person.dueDay || 1),
+      dueDay: dueDayToDateValue(person.dueDay || 1),
       notes: person.notes || "",
     });
     setModalOpen(true);
@@ -225,7 +242,7 @@ export default function App() {
       phone: draft.phone,
       room: draft.room,
       rentAmount: Number(draft.rentAmount) || 0,
-      dueDay: Number(draft.dueDay) || 1,
+      dueDay: dateValueToDueDay(draft.dueDay),
       notes: draft.notes,
     };
     if (!body.name.trim()) {
@@ -897,15 +914,14 @@ export default function App() {
                 <label>
                   {t(lang, "dueDayEachMonth")}
                   <input
-                    type="number"
-                    min="1"
-                    max="31"
+                    type="date"
+                    required
                     value={draft.dueDay}
                     onChange={(e) =>
                       setDraft({ ...draft, dueDay: e.target.value })
                     }
-                    inputMode="numeric"
                   />
+                  <small className="field-hint">{t(lang, "dueDayHint")}</small>
                 </label>
               </div>
               <label>

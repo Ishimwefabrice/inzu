@@ -658,6 +658,17 @@ label {
   font-weight: 500;
 }
 
+.field-hint {
+  color: rgba(21, 35, 28, 0.55);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+input[type="date"] {
+  min-height: 48px;
+}
+
 input,
 textarea {
   width: 100%;
