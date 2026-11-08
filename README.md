@@ -1,32 +1,47 @@
 # Inzu
 
-Free home app to record people living in your house, track monthly rent, and get reminders when payment is due.
+Free house app for your phone: record people living in the house, track monthly rent, and see reminders when payment is due.
 
-**Not** the school RentEase exam project. This is a separate product for real home use.
+**No fees. No PC required for your dad.**
 
-## For Dad — how to open
+School RentEase exam project is separate and was not changed.
 
-1. Double-click **`Start Inzu.bat`** (or `start.bat`)
-2. Wait for the browser to open at **http://127.0.0.1:5173**
-3. Keep the black window open while using the app
-4. Click **Turn on reminders** once so Windows can notify you
+## For Dad (phone only)
 
-## What you can do
+1. Open this link on the phone browser (Chrome or Safari):
 
-- Add people (name, phone, room, rent amount, due day)
-- See who is paid, due soon, or overdue this month
-- Mark rent as paid with one tap
-- Get reminders for overdue and soon-due payments
+   **https://ishimwefabrice.github.io/inzu/**
 
-## Technical
+2. Add it to the Home Screen:
+   - **Android Chrome:** menu ⋮ → **Add to Home screen** / **Install app**
+   - **iPhone Safari:** Share → **Add to Home Screen**
 
-- Frontend: React + Vite
-- Backend: Express on port `3737`
-- Data: saved locally in `server/data.json` (no cloud, no fees)
+3. Open the **Inzu** icon like a normal app.
 
-## Developer commands
+4. Tap **Turn on reminders** once.
+
+Data is saved on that phone (free, private). Use the same phone to keep the records.
+
+## What he can do
+
+- Add people (name, phone, room, rent, due day)
+- See who is paid / due soon / overdue
+- Mark rent paid with one tap
+- Get reminder notices on the phone
+
+## For developers (optional PC)
 
 ```bash
-npm run install:all
-npm start
+cd client
+npm install
+npm run dev
 ```
+
+Build for GitHub Pages:
+
+```bash
+cd client
+npm run build
+```
+
+Then publish the `client/dist` folder to the `gh-pages` branch.

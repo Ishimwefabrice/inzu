@@ -1,0 +1,29 @@
+{
+  "name": "Inzu — House Rent Reminder",
+  "short_name": "Inzu",
+  "description": "Record people in your house and get rent reminders. Free.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1F3A2E",
+  "theme_color": "#1F3A2E",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

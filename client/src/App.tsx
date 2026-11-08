@@ -1,45 +1,17 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import {
+  addPerson,
+  deletePerson,
+  getReminders,
+  getSummary,
+  listPeople,
+  markPaid,
+  undoPaid,
+  updatePerson,
+} from "./store";
+import type { PersonView, Reminder, StatusState, Summary } from "./store";
 import "./index.css";
-
-type StatusState = "paid" | "overdue" | "due_soon" | "upcoming";
-
-type Person = {
-  id: string;
-  name: string;
-  phone: string;
-  room: string;
-  rentAmount: number;
-  dueDay: number;
-  notes: string;
-  payments: { month: string; amount: number; paidAt: string }[];
-  status: {
-    state: StatusState;
-    due: string;
-    month: string;
-  };
-};
-
-type Summary = {
-  totalPeople: number;
-  paid: number;
-  overdue: number;
-  dueSoon: number;
-  upcoming: number;
-  expected: number;
-  collected: number;
-  outstanding: number;
-  month: string;
-};
-
-type Reminder = {
-  id: string;
-  name: string;
-  room: string;
-  phone: string;
-  rentAmount: number;
-  state: "overdue" | "due_soon";
-  due: string;
-};
 
 type Draft = {
   name: string;
@@ -75,32 +47,28 @@ function labelFor(state: StatusState) {
 }
 
 export default function App() {
-  const [people, setPeople] = useState<Person[]>([]);
+  const [people, setPeople] = useState<PersonView[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Person | null>(null);
+  const [editing, setEditing] = useState<PersonView | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [installHint, setInstallHint] = useState(false);
 
-  async function refresh() {
-    const [peopleRes, summaryRes, remindersRes] = await Promise.all([
-      fetch("/api/people"),
-      fetch("/api/summary"),
-      fetch("/api/reminders"),
-    ]);
-    setPeople(await peopleRes.json());
-    setSummary(await summaryRes.json());
-    setReminders(await remindersRes.json());
-    setLoading(false);
+  function refresh() {
+    setPeople(listPeople());
+    setSummary(getSummary());
+    setReminders(getReminders());
   }
 
   useEffect(() => {
-    refresh().catch(() => {
-      setLoading(false);
-      setToast("Could not reach Inzu server. Run Start Inzu.");
-    });
+    refresh();
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      // @ts-expect-error iOS Safari
+      window.navigator.standalone === true;
+    setInstallHint(!standalone);
   }, []);
 
   useEffect(() => {
@@ -112,16 +80,16 @@ export default function App() {
   useEffect(() => {
     if (reminders.length === 0) return;
     if (!("Notification" in window)) return;
-    if (Notification.permission === "granted") {
-      const overdue = reminders.filter((r) => r.state === "overdue").length;
-      const soon = reminders.filter((r) => r.state === "due_soon").length;
-      new Notification("Inzu rent reminder", {
-        body:
-          overdue > 0
-            ? `${overdue} overdue · ${soon} due soon`
-            : `${soon} rent payment(s) due soon`,
-      });
-    }
+    if (Notification.permission !== "granted") return;
+    const overdue = reminders.filter((r) => r.state === "overdue").length;
+    const soon = reminders.filter((r) => r.state === "due_soon").length;
+    new Notification("Inzu rent reminder", {
+      body:
+        overdue > 0
+          ? `${overdue} overdue · ${soon} due soon`
+          : `${soon} rent payment(s) due soon`,
+      icon: `${import.meta.env.BASE_URL}favicon.svg`,
+    });
   }, [reminders]);
 
   const monthLabel = useMemo(() => {
@@ -139,7 +107,7 @@ export default function App() {
     setModalOpen(true);
   }
 
-  function openEdit(person: Person) {
+  function openEdit(person: PersonView) {
     setEditing(person);
     setDraft({
       name: person.name,
@@ -152,7 +120,7 @@ export default function App() {
     setModalOpen(true);
   }
 
-  async function savePerson(e: FormEvent) {
+  function savePerson(e: FormEvent) {
     e.preventDefault();
     const body = {
       name: draft.name,
@@ -162,53 +130,45 @@ export default function App() {
       dueDay: Number(draft.dueDay) || 1,
       notes: draft.notes,
     };
-
-    const res = await fetch(editing ? `/api/people/${editing.id}` : "/api/people", {
-      method: editing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setToast(err.error || "Could not save");
+    if (!body.name.trim()) {
+      setToast("Name is required");
       return;
     }
-
+    if (editing) updatePerson(editing.id, body);
+    else addPerson(body);
     setModalOpen(false);
     setToast(editing ? "Person updated" : "Person added");
-    await refresh();
+    refresh();
   }
 
-  async function markPaid(person: Person) {
-    await fetch(`/api/people/${person.id}/pay`, { method: "POST" });
+  function onMarkPaid(person: PersonView) {
+    markPaid(person.id);
     setToast(`Marked ${person.name} as paid`);
-    await refresh();
+    refresh();
   }
 
-  async function undoPaid(person: Person) {
-    const month = person.status.month;
-    await fetch(`/api/people/${person.id}/pay/${month}`, { method: "DELETE" });
+  function onUndoPaid(person: PersonView) {
+    undoPaid(person.id, person.status.month);
     setToast(`Payment undone for ${person.name}`);
-    await refresh();
+    refresh();
   }
 
-  async function removePerson(person: Person) {
+  function onRemove(person: PersonView) {
     if (!window.confirm(`Remove ${person.name} from Inzu?`)) return;
-    await fetch(`/api/people/${person.id}`, { method: "DELETE" });
+    deletePerson(person.id);
     setToast(`${person.name} removed`);
-    await refresh();
+    refresh();
   }
 
   async function enableNotifications() {
     if (!("Notification" in window)) {
-      setToast("This browser does not support notifications");
+      setToast("This phone browser does not support notifications");
       return;
     }
     const permission = await Notification.requestPermission();
     setToast(
       permission === "granted"
-        ? "Reminders enabled on this computer"
+        ? "Reminders enabled on this phone"
         : "Notifications were not allowed"
     );
   }
@@ -218,8 +178,8 @@ export default function App() {
       <header className="hero">
         <h1 className="brand">Inzu</h1>
         <p>
-          Record the people in your house, track monthly rent, and get clear
-          reminders when payment is due — free, simple, and made for home use.
+          Record people in your house, track monthly rent, and see reminders when
+          payment is due. Free on your phone — no fees.
         </p>
         <div className="hero-actions">
           <button className="btn btn-primary" onClick={openCreate}>
@@ -231,30 +191,41 @@ export default function App() {
         </div>
       </header>
 
+      {installHint && (
+        <section className="panel install-tip">
+          <strong>Save Inzu on this phone</strong>
+          <p>
+            Android Chrome: menu → <b>Add to Home screen</b> / <b>Install app</b>.
+            <br />
+            iPhone Safari: Share → <b>Add to Home Screen</b>.
+          </p>
+        </section>
+      )}
+
       <section className="panel">
         <div className="section-head">
           <div>
             <h2>This month</h2>
-            <p>{monthLabel || "Loading house summary..."}</p>
+            <p>{monthLabel || "House summary"}</p>
           </div>
         </div>
         <div className="stats">
           <div className="stat">
             <span>People</span>
-            <strong>{summary?.totalPeople ?? "—"}</strong>
+            <strong>{summary?.totalPeople ?? 0}</strong>
           </div>
           <div className="stat">
             <span>Paid</span>
-            <strong>{summary?.paid ?? "—"}</strong>
+            <strong>{summary?.paid ?? 0}</strong>
           </div>
           <div className="stat">
             <span>Overdue</span>
-            <strong>{summary?.overdue ?? "—"}</strong>
+            <strong>{summary?.overdue ?? 0}</strong>
           </div>
           <div className="stat">
             <span>Still owed</span>
             <strong className="money">
-              {summary ? money(summary.outstanding) : "—"}
+              {summary ? money(summary.outstanding) : money(0)}
             </strong>
           </div>
         </div>
@@ -297,9 +268,7 @@ export default function App() {
           </button>
         </div>
 
-        {loading ? (
-          <div className="empty">Loading...</div>
-        ) : people.length === 0 ? (
+        {people.length === 0 ? (
           <div className="empty">
             No one recorded yet. Add the first person living in the house.
           </div>
@@ -324,18 +293,18 @@ export default function App() {
                 </div>
                 <div className="actions">
                   {person.status.state === "paid" ? (
-                    <button className="btn btn-quiet" onClick={() => undoPaid(person)}>
+                    <button className="btn btn-quiet" onClick={() => onUndoPaid(person)}>
                       Undo paid
                     </button>
                   ) : (
-                    <button className="btn btn-ok" onClick={() => markPaid(person)}>
+                    <button className="btn btn-ok" onClick={() => onMarkPaid(person)}>
                       Mark paid
                     </button>
                   )}
                   <button className="btn btn-quiet" onClick={() => openEdit(person)}>
                     Edit
                   </button>
-                  <button className="btn btn-danger" onClick={() => removePerson(person)}>
+                  <button className="btn btn-danger" onClick={() => onRemove(person)}>
                     Remove
                   </button>
                 </div>
@@ -366,6 +335,7 @@ export default function App() {
                     value={draft.phone}
                     onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
                     placeholder="0788..."
+                    inputMode="tel"
                   />
                 </label>
                 <label>
@@ -386,6 +356,7 @@ export default function App() {
                     value={draft.rentAmount}
                     onChange={(e) => setDraft({ ...draft, rentAmount: e.target.value })}
                     placeholder="150000"
+                    inputMode="numeric"
                   />
                 </label>
                 <label>
@@ -396,6 +367,7 @@ export default function App() {
                     max="31"
                     value={draft.dueDay}
                     onChange={(e) => setDraft({ ...draft, dueDay: e.target.value })}
+                    inputMode="numeric"
                   />
                 </label>
               </div>
