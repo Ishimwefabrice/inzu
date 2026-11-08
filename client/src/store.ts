@@ -17,6 +17,7 @@ export type Payment = {
 export type Person = {
   id: string;
   name: string;
+  nationalId: string;
   phone: string;
   room: string;
   rentAmount: number;
@@ -53,6 +54,7 @@ export type Reminder = {
   name: string;
   room: string;
   phone: string;
+  nationalId: string;
   rentAmount: number;
   state: "overdue" | "due_soon";
   due: string;
@@ -83,6 +85,7 @@ function normalizePerson(raw: Partial<Person> & { id: string }): Person {
   return {
     id: raw.id,
     name: String(raw.name || ""),
+    nationalId: String(raw.nationalId || ""),
     phone: String(raw.phone || ""),
     room: String(raw.room || ""),
     rentAmount: Number(raw.rentAmount) || 0,
@@ -163,7 +166,7 @@ export function searchPeople(query: string): PersonView[] {
   const q = query.trim().toLowerCase();
   if (!q) return listPeople();
   return listPeople().filter((p) => {
-    const hay = `${p.name} ${p.phone} ${p.room} ${p.notes}`.toLowerCase();
+    const hay = `${p.name} ${p.nationalId} ${p.phone} ${p.room} ${p.notes}`.toLowerCase();
     return hay.includes(q);
   });
 }
@@ -208,6 +211,7 @@ export function getReminders(): Reminder[] {
       name: p.name,
       room: p.room,
       phone: p.phone,
+      nationalId: p.nationalId,
       rentAmount: p.rentAmount,
       state: p.status.state as "overdue" | "due_soon",
       due: p.status.due.slice(0, 10),
@@ -245,6 +249,7 @@ export function paymentHistory(person: Person, year = new Date().getFullYear()):
 
 export function addPerson(input: {
   name: string;
+  nationalId: string;
   phone: string;
   room: string;
   rentAmount: number;
@@ -255,6 +260,7 @@ export function addPerson(input: {
   const person: Person = {
     id: crypto.randomUUID(),
     name: input.name.trim(),
+    nationalId: input.nationalId.trim(),
     phone: input.phone.trim(),
     room: input.room.trim(),
     rentAmount: Number(input.rentAmount) || 0,
@@ -274,6 +280,7 @@ export function updatePerson(
   id: string,
   input: {
     name: string;
+    nationalId: string;
     phone: string;
     room: string;
     rentAmount: number;
@@ -287,6 +294,7 @@ export function updatePerson(
   people[idx] = {
     ...people[idx],
     name: input.name.trim(),
+    nationalId: input.nationalId.trim(),
     phone: input.phone.trim(),
     room: input.room.trim(),
     rentAmount: Number(input.rentAmount) || 0,

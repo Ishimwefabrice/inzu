@@ -46,6 +46,7 @@ import "./index.css";
 
 type Draft = {
   name: string;
+  nationalId: string;
   phone: string;
   room: string;
   rentAmount: string;
@@ -55,6 +56,7 @@ type Draft = {
 
 const emptyDraft: Draft = {
   name: "",
+  nationalId: "",
   phone: "",
   room: "",
   rentAmount: "",
@@ -251,13 +253,21 @@ export default function App() {
     if (!shouldSendReminderNotification(reminders)) return;
     const overdue = reminders.filter((r) => r.state === "overdue").length;
     const soon = reminders.filter((r) => r.state === "due_soon").length;
+    const names = reminders
+      .slice(0, 3)
+      .map((r) => r.name)
+      .join(", ");
     new Notification(t(lang, "notifTitle"), {
       body:
         overdue > 0
-          ? t(lang, "notifBodyOverdue", { overdue, soon })
-          : t(lang, "notifBodySoon", { soon }),
+          ? t(lang, "notifBodyOverdue", { overdue, soon }) +
+            (names ? ` — ${names}` : "")
+          : t(lang, "notifBodySoon", { soon }) + (names ? ` — ${names}` : ""),
       icon: `${import.meta.env.BASE_URL}favicon.svg`,
+      tag: "inzu-rent-due",
+      requireInteraction: true,
     });
+    if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
   }, [reminders, lang]);
 
   const monthLabel = useMemo(() => {
@@ -280,6 +290,7 @@ export default function App() {
     setEditing(person);
     setDraft({
       name: person.name,
+      nationalId: person.nationalId || "",
       phone: person.phone,
       room: person.room,
       rentAmount: String(person.rentAmount || ""),
@@ -293,6 +304,7 @@ export default function App() {
     e.preventDefault();
     const body = {
       name: draft.name,
+      nationalId: draft.nationalId,
       phone: draft.phone,
       room: draft.room,
       rentAmount: Number(draft.rentAmount) || 0,
@@ -520,6 +532,7 @@ export default function App() {
           <section class="person">
             <h2>${escapeHtml(person.name)}</h2>
             <p>
+              ${escapeHtml(t(lang, "nationalId"))}: ${escapeHtml(person.nationalId || "—")}<br/>
               ${escapeHtml(t(lang, "room"))}: ${escapeHtml(person.room || t(lang, "noRoom"))}<br/>
               ${escapeHtml(t(lang, "phone"))}: ${escapeHtml(person.phone || "—")}<br/>
               ${escapeHtml(t(lang, "rent"))}: ${escapeHtml(money(person.rentAmount, lang))}<br/>
@@ -600,6 +613,94 @@ export default function App() {
     report.document.write(html);
     report.document.close();
     setToast(t(lang, "pdfReady"));
+  }
+
+  function exportPersonPdf(person: PersonView) {
+    const now = new Date().toLocaleString(localeFor(lang), {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const dueLabel = person.status.due.slice(0, 10);
+    const historyRows = paymentHistory(person)
+      .map(
+        (h) =>
+          `<tr>
+            <td>${escapeHtml(formatMonth(h.month, lang))}</td>
+            <td>${escapeHtml(money(h.amount, lang))}</td>
+            <td>${h.paid ? escapeHtml(t(lang, "paid")) : escapeHtml(t(lang, "unpaid"))}</td>
+            <td>${h.paidAt ? escapeHtml(formatDate(h.paidAt, lang)) : "—"}</td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="${lang === "rw" ? "rw" : lang}">
+<head>
+  <meta charset="utf-8" />
+  <title>Inzu — ${escapeHtml(person.name)}</title>
+  <style>
+    body { font-family: Georgia, "Times New Roman", serif; color: #15231c; margin: 24px; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    h2 { font-size: 16px; margin: 18px 0 8px; color: #1f3a2e; }
+    .meta { color: #555; margin-bottom: 16px; font-size: 13px; }
+    .card { border: 1px solid #d7e0d8; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eef3ec; font-size: 13px; }
+    .row:last-child { border-bottom: 0; }
+    .label { color: #666; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #eef3ec; font-size: 12px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #d7e0d8; padding: 6px 8px; text-align: left; }
+    th { background: #eef3ec; }
+    .hint { margin-top: 18px; font-size: 12px; color: #666; }
+    @media print { body { margin: 12mm; } .no-print { display: none !important; } }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(person.name)}</h1>
+  <p class="meta">${escapeHtml(t(lang, "tenantPdfTitle"))}<br/>${escapeHtml(now)}</p>
+  <div class="card">
+    <div class="row"><span class="label">${escapeHtml(t(lang, "nationalId"))}</span><strong>${escapeHtml(person.nationalId || "—")}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "phone"))}</span><strong>${escapeHtml(person.phone || "—")}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "room"))}</span><strong>${escapeHtml(person.room || t(lang, "noRoom"))}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "amountToPay"))}</span><strong>${escapeHtml(money(person.rentAmount, lang))}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "dueDay"))}</span><strong>${person.dueDay}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "nextDue"))}</span><strong>${escapeHtml(dueLabel)}</strong></div>
+    <div class="row"><span class="label">${escapeHtml(t(lang, "thisMonth"))}</span><span class="badge">${escapeHtml(labelFor(lang, person.status.state))}</span></div>
+    ${person.notes ? `<div class="row"><span class="label">${escapeHtml(t(lang, "notes"))}</span><strong>${escapeHtml(person.notes)}</strong></div>` : ""}
+  </div>
+  <h2>${escapeHtml(t(lang, "paymentHistory"))}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>${escapeHtml(t(lang, "month"))}</th>
+        <th>${escapeHtml(t(lang, "amount"))}</th>
+        <th>${escapeHtml(t(lang, "paid"))}</th>
+        <th>${escapeHtml(t(lang, "paidOn"))}</th>
+      </tr>
+    </thead>
+    <tbody>${historyRows}</tbody>
+  </table>
+  <p class="hint no-print">${escapeHtml(t(lang, "pdfPrintHint"))}</p>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+
+    const report = window.open("", "_blank");
+    if (!report) {
+      setToast(t(lang, "pdfBlocked"));
+      return;
+    }
+    report.document.open();
+    report.document.write(html);
+    report.document.close();
+    setToast(t(lang, "tenantPdfReady"));
   }
 
   async function importBackup(file: File | null) {
@@ -687,6 +788,7 @@ export default function App() {
           </button>
         </div>
         <p className="notif-help">{t(lang, "notifHelp")}</p>
+        <p className="notif-help">{t(lang, "ownerNotifyHelp")}</p>
       </header>
 
       <section className="panel anim-delay-1">
@@ -745,25 +847,34 @@ export default function App() {
           </div>
           <div className="reminders">
             {reminders.map((r, i) => (
-              <button
+              <div
                 key={r.id}
-                type="button"
-                className={`reminder ${r.state} slide-in reminder-btn`}
+                className={`reminder ${r.state} slide-in`}
                 style={{ animationDelay: `${0.05 + i * 0.07}s` }}
-                onClick={() => setDetailId(r.id)}
               >
-                <div>
+                <button
+                  type="button"
+                  className="reminder-btn"
+                  onClick={() => setDetailId(r.id)}
+                >
                   <strong>{r.name}</strong>
                   <p>
                     {r.room ? `${t(lang, "room")} ${r.room} · ` : ""}
                     {t(lang, "due")} {r.due} · {money(r.rentAmount, lang)}
-                    {r.phone ? ` · ${r.phone}` : ""}
+                    {r.nationalId ? ` · ${t(lang, "nationalId")} ${r.nationalId}` : ""}
                   </p>
+                </button>
+                <div className="reminder-side">
+                  <span className={`badge ${r.state} badge-pulse`}>
+                    {labelFor(lang, r.state)}
+                  </span>
+                  {r.phone && (
+                    <a className="btn btn-ok" href={`tel:${r.phone}`}>
+                      {t(lang, "callTenant")}
+                    </a>
+                  )}
                 </div>
-                <span className={`badge ${r.state} badge-pulse`}>
-                  {labelFor(lang, r.state)}
-                </span>
-              </button>
+              </div>
             ))}
           </div>
         </section>
@@ -939,13 +1050,19 @@ export default function App() {
                     : t(lang, "noRoom")}
                 </p>
                 <p className="detail-line">
-                  {t(lang, "rent")} {money(detail.rentAmount, lang)} ·{" "}
+                  {t(lang, "nationalId")}: {detail.nationalId || "—"}
+                </p>
+                <p className="detail-line">
+                  {t(lang, "amountToPay")}: {money(detail.rentAmount, lang)} ·{" "}
                   {t(lang, "dueDay")} {detail.dueDay}
+                </p>
+                <p className="detail-line">
+                  {t(lang, "nextDue")}: {detail.status.due.slice(0, 10)}
                 </p>
                 {detail.phone && (
                   <p className="detail-line">
                     <a className="call-link" href={`tel:${detail.phone}`}>
-                      {t(lang, "call")} {detail.phone}
+                      {t(lang, "callTenant")} {detail.phone}
                     </a>
                   </p>
                 )}
@@ -963,6 +1080,12 @@ export default function App() {
                   {t(lang, "markPaid")}
                 </button>
               )}
+              <button
+                className="btn btn-primary"
+                onClick={() => exportPersonPdf(detail)}
+              >
+                {t(lang, "tenantPdf")}
+              </button>
               <button
                 className="btn btn-quiet"
                 onClick={() => {
@@ -1085,6 +1208,16 @@ export default function App() {
               </label>
               <div className="form-row">
                 <label>
+                  {t(lang, "nationalId")}
+                  <input
+                    value={draft.nationalId}
+                    onChange={(e) =>
+                      setDraft({ ...draft, nationalId: e.target.value })
+                    }
+                    placeholder={t(lang, "nationalIdPlaceholder")}
+                  />
+                </label>
+                <label>
                   {t(lang, "phone")}
                   <input
                     value={draft.phone}
@@ -1095,17 +1228,17 @@ export default function App() {
                     inputMode="tel"
                   />
                 </label>
-                <label>
-                  {t(lang, "roomUnit")}
-                  <input
-                    value={draft.room}
-                    onChange={(e) =>
-                      setDraft({ ...draft, room: e.target.value })
-                    }
-                    placeholder={t(lang, "roomPlaceholder")}
-                  />
-                </label>
               </div>
+              <label>
+                {t(lang, "roomUnit")}
+                <input
+                  value={draft.room}
+                  onChange={(e) =>
+                    setDraft({ ...draft, room: e.target.value })
+                  }
+                  placeholder={t(lang, "roomPlaceholder")}
+                />
+              </label>
               <div className="form-row">
                 <label>
                   {t(lang, "monthlyRent")}
