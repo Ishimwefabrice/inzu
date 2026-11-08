@@ -871,7 +871,7 @@ export default function App() {
                   required
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                  placeholder="e.g. Aline Uwase"
+                  placeholder={t(lang, "namePlaceholder")}
                 />
               </label>
               <div className="form-row">
@@ -882,7 +882,7 @@ export default function App() {
                     onChange={(e) =>
                       setDraft({ ...draft, phone: e.target.value })
                     }
-                    placeholder="0788..."
+                    placeholder={t(lang, "phonePlaceholder")}
                     inputMode="tel"
                   />
                 </label>
@@ -893,7 +893,7 @@ export default function App() {
                     onChange={(e) =>
                       setDraft({ ...draft, room: e.target.value })
                     }
-                    placeholder="Room 2"
+                    placeholder={t(lang, "roomPlaceholder")}
                   />
                 </label>
               </div>
@@ -907,7 +907,7 @@ export default function App() {
                     onChange={(e) =>
                       setDraft({ ...draft, rentAmount: e.target.value })
                     }
-                    placeholder="150000"
+                    placeholder={t(lang, "rentPlaceholder")}
                     inputMode="numeric"
                   />
                 </label>
